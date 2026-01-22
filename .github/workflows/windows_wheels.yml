@@ -1,0 +1,47 @@
+name: Build Windows Wheels
+
+on: [push, pull_request]
+
+jobs:
+  build_windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10' # 你可以根据需要修改版本
+
+      - name: Install Build Tools
+        run: |
+          pip install meson ninja build wheel
+
+      - name: Build C++ Library (WebRTC APM)
+        shell: powershell
+        run: |
+          # 1. 编译核心 C++ 库
+          meson setup build-win . --prefix="${{ github.workspace }}/install" --buildtype=release -Dcpp_std=c++20
+          meson compile -C build-win
+          meson install -C build-win
+
+      - name: Build Python Wheel
+        shell: powershell
+        working-directory: ./python
+        run: |
+          # 2. 设置环境变量让 Python 编译器能找到刚才编译的库
+          $env:INCLUDE += ";${{ github.workspace }}/install/include"
+          $env:LIB += ";${{ github.workspace }}/install/lib"
+          
+          # 3. 生成 Wheel
+          python -m build --wheel --no-isolation --outdir ../dist
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: webrtc-python-windows-wheel
+          path: dist/*.whl
