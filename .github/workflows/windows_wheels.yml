@@ -21,11 +21,18 @@ jobs:
         run: |
           pip install meson ninja build wheel
 
-      - name: Build C++ Library (WebRTC APM)
-        # 关键修改：使用 cmd 并调用 vcvarsall.bat 激活 MSVC 环境
+      - name: Build C++ Library (MSVC)
+        # 强制使用 cmd 以便正确调用 vcvarsall.bat
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+          :: 1. 激活 64位 MSVC 编译环境
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          
+          :: 2. 强制 Meson 使用 cl.exe (MSVC) 而不是 gcc
+          set CC=cl
+          set CXX=cl
+          
+          :: 3. 配置、编译、安装
           meson setup build-win . --prefix="%CD%\install" --buildtype=release -Dcpp_std=c++20 --backend=ninja
           meson compile -C build-win
           meson install -C build-win
@@ -34,9 +41,12 @@ jobs:
         shell: cmd
         working-directory: ./python
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          
+          :: 关联刚刚安装好的 C++ 库路径
           set "INCLUDE=%INCLUDE%;%CD%\..\install\include"
           set "LIB=%LIB%;%CD%\..\install\lib"
+          
           python -m build --wheel --no-isolation --outdir ../dist
 
       - name: Upload Artifacts
