@@ -28,7 +28,6 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           set CC=cl
           set CXX=cl
-          # 1. 编译 C++ 核心库并安装到当前目录的 install 文件夹
           meson setup build-win . --prefix="%CD%\install" --buildtype=release -Dcpp_std=c++20 --backend=ninja
           meson compile -C build-win
           meson install -C build-win
@@ -38,24 +37,21 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           
-          set "INSTALL_DIR=%CD%\install"
-          
-          # 2. 物理同步：将库文件直接拷贝到 python 源码目录（防止 setup.py 找不到）
-          echo Syncing library files to python directory...
+          :: 物理拷贝库文件，确保 setup.py 的搜索逻辑能命中
+          echo Preparing libraries for Windows...
           if not exist "python\include" mkdir "python\include"
           xcopy /S /I /Y "install\include\*" "python\include\"
-          copy /Y "install\lib\*.lib" "python\"
-
-          # 3. 设置路径环境变量（供编译器使用）
-          set "INCLUDE=%INCLUDE%;%INSTALL_DIR%\include;%INSTALL_DIR%\include\webrtc-audio-processing"
-          set "LIB=%LIB%;%INSTALL_DIR%\lib"
           
-          # 4. 获取 pybind11 路径并加入 INCLUDE
-          for /f "delims=" %%i in ('python -c "import pybind11; print(pybind11.get_include())"') do set "PYBIND_INC=%%i"
-          set "INCLUDE=%INCLUDE%;%PYBIND_INC%"
+          :: 重点：拷贝到 python 根目录，并提供 setup.py 预期的名字
+          copy /Y "install\lib\webrtc-audio-processing-2.lib" "python\webrtc-audio-processing-2.lib"
+          
+          :: 设置环境变量供编译器使用
+          set "INSTALL_DIR=%CD%\install"
+          set "INCLUDE=%INCLUDE%;%INSTALL_DIR%\include;%INSTALL_DIR%\include\webrtc-audio-processing-2;%CD%\python\include"
+          set "LIB=%LIB%;%INSTALL_DIR%\lib;%CD%\python"
 
-          # 5. 执行构建：使用 --no-isolation 强制使用当前环境中的依赖和路径
           cd python
+          :: 使用 --no-isolation 确保读取当前 shell 的环境变量
           python -m build --wheel --no-isolation --outdir ../dist
 
       - name: Upload Artifacts
