@@ -28,7 +28,8 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           set CC=cl
           set CXX=cl
-          meson setup build-win . --prefix="%CD%\install" --buildtype=release -Dcpp_std=c++20 --backend=ninja
+          :: 强制使用静态库编译，减少 DLL 缺失和链接符号报错
+          meson setup build-win . --prefix="%CD%\install" --buildtype=release -Ddefault_library=static -Dcpp_std=c++20 --backend=ninja
           meson compile -C build-win
           meson install -C build-win
 
@@ -37,21 +38,20 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           
-          :: 物理拷贝库文件，确保 setup.py 的搜索逻辑能命中
-          echo Preparing libraries for Windows...
+          echo Preparing libraries for Windows build...
           if not exist "python\include" mkdir "python\include"
           xcopy /S /I /Y "install\include\*" "python\include\"
           
-          :: 重点：拷贝到 python 根目录，并提供 setup.py 预期的名字
-          copy /Y "install\lib\webrtc-audio-processing-2.lib" "python\webrtc-audio-processing-2.lib"
+          :: 关键：拷贝所有生成的 .lib 文件（包括子模块库）到 python 目录
+          copy /Y "install\lib\*.lib" "python\"
           
-          :: 设置环境变量供编译器使用
+          :: 设置编译器和链接器环境变量
           set "INSTALL_DIR=%CD%\install"
           set "INCLUDE=%INCLUDE%;%INSTALL_DIR%\include;%INSTALL_DIR%\include\webrtc-audio-processing-2;%CD%\python\include"
           set "LIB=%LIB%;%INSTALL_DIR%\lib;%CD%\python"
 
           cd python
-          :: 使用 --no-isolation 确保读取当前 shell 的环境变量
+          :: 使用 --no-isolation 确保能读取上面设置的 LIB 和 INCLUDE
           python -m build --wheel --no-isolation --outdir ../dist
 
       - name: Upload Artifacts
