@@ -7,7 +7,7 @@ name = "webrtc-audio-processing"
 version = "2.1.0"
 description = "Python bindings for WebRTC Audio Processing library"
 readme = "README.md"
-license = { text = "BSD-3-Clause" }
+license = "BSD-3-Clause"
 authors = [
     {name = "WebRTC Audio Processing Python", email = "info@example.com"},
 ]
